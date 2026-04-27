@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>bathroom thoughs</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="tile-overlay"></div>
+    <main class="app-shell">
+      <header class="site-header">
+        <div class="title-block">
+          <p class="eyebrow">the diaz-castro household presents</p>
+          <h1>bathroom thoughs</h1>
+          <p class="subtitle">this is a safe space.</p>
+        </div>
+        <aside class="fact-card" aria-live="polite">
+          <h2>random bathroom fact</h2>
+          <p id="factText"></p>
+        </aside>
+      </header>
+
+      <section class="composer-card">
+        <h2>drop a thought</h2>
+        <form id="thoughtForm">
+          <label class="sr-only" for="usernameInput">your username</label>
+          <input
+            id="usernameInput"
+            placeholder="pick an username (example: ducky_legend, toilet_therapist or midnight_plumber)"
+            required
+          />
+          <label class="sr-only" for="thoughtInput">your bathroom thought</label>
+          <textarea
+            id="thoughtInput"
+            maxlength="240"
+            placeholder="what brilliant bathroom thought just hit you?"
+            required
+          ></textarea>
+          <div class="composer-footer">
+            <small id="charCount">0 / 240</small>
+            <button type="submit">flush your thoughts 🚽</button>
+          </div>
+        </form>
+      </section>
+
+      <section class="feed-card">
+        <div class="feed-title-row">
+          <h2>feed</h2>
+          <span class="live-dot">live</span>
+        </div>
+        <div id="feed" class="feed-list" aria-live="polite"></div>
+        <nav id="feedPagination" class="feed-pagination" aria-label="feed pages"></nav>
+      </section>
+
+      <section class="game-card">
+        <div class="feed-title-row">
+          <h2>poop mini game</h2>
+          <span id="gameLives" class="live-dot">lives: 3</span>
+        </div>
+        <p class="game-help">move the toilet, catch the poop, miss 3 and it resets.</p>
+        <div class="game-controls">
+          <label class="sr-only" for="difficultySelect">difficulty</label>
+          <select id="difficultySelect">
+            <option value="easy">easy</option>
+            <option value="medium" selected>medium</option>
+            <option value="hard">hard</option>
+          </select>
+          <button id="playGameBtn" type="button" class="restart-btn">play</button>
+          <button id="restartGameBtn" type="button" class="restart-btn">restart game</button>
+        </div>
+        <canvas id="poopGame" width="560" height="280" aria-label="poop mini game"></canvas>
+        <p class="game-help">top 3 scores</p>
+        <ol id="leaderboardList" class="leaderboard-list"></ol>
+      </section>
+
+      <section class="gallery-card">
+        <h2>bathroom selfie gallery</h2>
+        <p class="game-help">take or upload a bathroom selfie!</p>
+        <div class="gallery-upload-row">
+          <label class="gallery-upload-btn">
+            add selfie
+            <input id="selfieInput" type="file" accept="image/*" capture="user" hidden />
+          </label>
+        </div>
+        <div id="selfieGallery" class="selfie-gallery"></div>
+      </section>
+
+      <section class="soap-card">
+        <h2>soap affirmations</h2>
+        <p class="game-help">press the button to generate your fresh affirmation.</p>
+        <button id="soapBtn" type="button" class="soap-gen-btn">new affirmation soap</button>
+        <div id="soapDisplay" class="soap-display" aria-live="polite"></div>
+      </section>
+    </main>
+
+    <div id="photoLightbox" class="photo-lightbox" hidden role="dialog" aria-modal="true" aria-label="enlarged photo">
+      <button id="lightboxCloseBtn" type="button" class="lightbox-close" aria-label="close">&times;</button>
+      <img id="lightboxImg" alt="enlarged bathroom selfie" />
+    </div>
+
+    <script src="./script.js"></script>
+  </body>
+</html>
