@@ -80,6 +80,7 @@ const soapAffirmations = [
 
 const feed = document.getElementById("feed");
 const feedPagination = document.getElementById("feedPagination");
+const syncStatus = document.getElementById("syncStatus");
 const form = document.getElementById("thoughtForm");
 const input = document.getElementById("thoughtInput");
 const usernameInput = document.getElementById("usernameInput");
@@ -103,8 +104,210 @@ const MAX_SELFIES = 12;
 const reactionTypes = ["❤️", "😂", "😮", "😢", "😡", "🦆", "🚽"];
 const deletePasswords = new Set(["lunasafaera", "sushimercedescarota"]);
 const FEED_STORAGE_KEY = "bathroomThoughtsFeed_v1";
+const LEADERBOARD_STORAGE_KEY = "bathroomThoughtsLeaderboard";
 const POSTS_PER_PAGE = 10;
 let feedPage = 1;
+
+const remote = {
+  enabled: false,
+  db: null,
+  feed: [],
+  selfies: [],
+  leaderboard: [],
+  feedReady: false,
+  selfiesReady: false,
+  leaderboardReady: false,
+  feedMergeDone: false,
+  selfiesMergeDone: false,
+  leaderboardMergeDone: false
+};
+
+function isFirebaseConfigured() {
+  const config = window.FIREBASE_CONFIG;
+  if (!config || !config.databaseURL || !config.apiKey) return false;
+  return !String(config.apiKey).includes("YOUR_");
+}
+
+function readLocalJson(key) {
+  try {
+    const raw = localStorage.getItem(key);
+    const list = JSON.parse(raw || "[]");
+    return Array.isArray(list) ? list : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeLocalJson(key, list) {
+  localStorage.setItem(key, JSON.stringify(list));
+}
+
+function normalizeFirebaseArray(value) {
+  if (!value) return [];
+  if (Array.isArray(value)) return value;
+  if (typeof value === "object") {
+    return Object.keys(value)
+      .sort((a, b) => Number(a) - Number(b))
+      .map((key) => value[key]);
+  }
+  return [];
+}
+
+function mergeById(localItems, remoteItems, sortFn) {
+  const map = new Map();
+  localItems.forEach((item) => map.set(item.id, item));
+  remoteItems.forEach((item) => map.set(item.id, item));
+  const merged = [...map.values()];
+  if (sortFn) merged.sort(sortFn);
+  return merged;
+}
+
+function mergeLeaderboards(localItems, remoteItems) {
+  const byUser = new Map();
+  [...localItems, ...remoteItems].forEach((entry) => {
+    const prev = byUser.get(entry.user);
+    if (!prev || entry.score > prev.score) {
+      byUser.set(entry.user, entry);
+    }
+  });
+  return [...byUser.values()].sort(leaderboardSort).slice(0, 3);
+}
+
+function postsSortNewest(a, b) {
+  return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+}
+
+function leaderboardSort(a, b) {
+  return b.score - a.score;
+}
+
+function setSyncStatus(text, isLive) {
+  if (!syncStatus) return;
+  syncStatus.textContent = text;
+  syncStatus.classList.toggle("is-live", Boolean(isLive));
+}
+
+function pushFeed(posts) {
+  remote.feed = posts;
+  writeLocalJson(FEED_STORAGE_KEY, posts);
+  if (remote.enabled) {
+    remote.db.ref("feed").set(posts);
+  }
+}
+
+function pushSelfies(list) {
+  remote.selfies = list;
+  writeLocalJson(SELFIE_STORAGE_KEY, list);
+  if (remote.enabled) {
+    remote.db.ref("selfies").set(list);
+  }
+}
+
+function pushLeaderboard(board) {
+  remote.leaderboard = board;
+  writeLocalJson(LEADERBOARD_STORAGE_KEY, board);
+  if (remote.enabled) {
+    remote.db.ref("leaderboard").set(board);
+  }
+}
+
+function initRemoteSync() {
+  remote.feed = readLocalJson(FEED_STORAGE_KEY);
+  remote.selfies = readLocalJson(SELFIE_STORAGE_KEY);
+  remote.leaderboard = readLocalJson(LEADERBOARD_STORAGE_KEY);
+  renderFeed();
+  renderSelfies();
+  renderLeaderboard();
+
+  if (!isFirebaseConfigured()) {
+    remote.feedReady = true;
+    remote.selfiesReady = true;
+    remote.leaderboardReady = true;
+    setSyncStatus("offline", false);
+    return;
+  }
+
+  setSyncStatus("connecting…", false);
+
+  try {
+    firebase.initializeApp(window.FIREBASE_CONFIG);
+    remote.db = firebase.database();
+    remote.enabled = true;
+  } catch (error) {
+    console.error("firebase init failed", error);
+    setSyncStatus("sync error", false);
+    return;
+  }
+
+  remote.db.ref("feed").on("value", (snapshot) => {
+    const incoming = normalizeFirebaseArray(snapshot.val());
+    const local = readLocalJson(FEED_STORAGE_KEY);
+
+    if (!remote.feedMergeDone) {
+      remote.feedMergeDone = true;
+      if (local.length && incoming.length) {
+        pushFeed(mergeById(local, incoming, postsSortNewest));
+        return;
+      }
+      if (local.length && !incoming.length) {
+        pushFeed(local);
+        return;
+      }
+    }
+
+    remote.feed = incoming;
+    remote.feedReady = true;
+    writeLocalJson(FEED_STORAGE_KEY, incoming);
+    setSyncStatus("live", true);
+    renderFeed();
+  }, () => {
+    setSyncStatus("sync error", false);
+  });
+
+  remote.db.ref("selfies").on("value", (snapshot) => {
+    const incoming = normalizeFirebaseArray(snapshot.val());
+    const local = readLocalJson(SELFIE_STORAGE_KEY);
+
+    if (!remote.selfiesMergeDone) {
+      remote.selfiesMergeDone = true;
+      if (local.length && incoming.length) {
+        pushSelfies(mergeById(local, incoming).slice(0, MAX_SELFIES));
+        return;
+      }
+      if (local.length && !incoming.length) {
+        pushSelfies(local.slice(0, MAX_SELFIES));
+        return;
+      }
+    }
+
+    remote.selfies = incoming.slice(0, MAX_SELFIES);
+    remote.selfiesReady = true;
+    writeLocalJson(SELFIE_STORAGE_KEY, remote.selfies);
+    renderSelfies();
+  });
+
+  remote.db.ref("leaderboard").on("value", (snapshot) => {
+    const incoming = normalizeFirebaseArray(snapshot.val());
+    const local = readLocalJson(LEADERBOARD_STORAGE_KEY);
+
+    if (!remote.leaderboardMergeDone) {
+      remote.leaderboardMergeDone = true;
+      if (local.length && incoming.length) {
+        pushLeaderboard(mergeLeaderboards(local, incoming));
+        return;
+      }
+      if (local.length && !incoming.length) {
+        pushLeaderboard(local.slice(0, 3));
+        return;
+      }
+    }
+
+    remote.leaderboard = incoming.slice(0, 3);
+    remote.leaderboardReady = true;
+    writeLocalJson(LEADERBOARD_STORAGE_KEY, remote.leaderboard);
+    renderLeaderboard();
+  });
+}
 
 function savedUsername() {
   return localStorage.getItem("bathroomThoughtsUser") || "";
@@ -124,17 +327,12 @@ function formatPostTime(isoString) {
 }
 
 function getPosts() {
-  try {
-    const raw = localStorage.getItem(FEED_STORAGE_KEY);
-    const list = JSON.parse(raw || "[]");
-    return Array.isArray(list) ? list : [];
-  } catch {
-    return [];
-  }
+  if (remote.enabled || remote.feedReady) return remote.feed;
+  return readLocalJson(FEED_STORAGE_KEY);
 }
 
 function savePosts(posts) {
-  localStorage.setItem(FEED_STORAGE_KEY, JSON.stringify(posts));
+  pushFeed(posts);
 }
 
 function playFlushSound() {
@@ -410,17 +608,12 @@ feed.addEventListener("click", (event) => {
 });
 
 function getSelfies() {
-  try {
-    const raw = localStorage.getItem(SELFIE_STORAGE_KEY);
-    const list = JSON.parse(raw || "[]");
-    return Array.isArray(list) ? list : [];
-  } catch {
-    return [];
-  }
+  if (remote.enabled || remote.selfiesReady) return remote.selfies;
+  return readLocalJson(SELFIE_STORAGE_KEY);
 }
 
 function saveSelfies(list) {
-  localStorage.setItem(SELFIE_STORAGE_KEY, JSON.stringify(list));
+  pushSelfies(list);
 }
 
 function openLightbox(src) {
@@ -591,8 +784,7 @@ soapBtn.addEventListener("click", () => {
 rotateFact();
 setInterval(rotateFact, 15000);
 
-renderFeed();
-renderSelfies();
+initRemoteSync();
 
 const ctx = gameCanvas.getContext("2d");
 const difficultySettings = {
@@ -612,11 +804,8 @@ const game = {
 };
 
 function getLeaderboard() {
-  try {
-    return JSON.parse(localStorage.getItem("bathroomThoughtsLeaderboard") || "[]");
-  } catch {
-    return [];
-  }
+  if (remote.enabled || remote.leaderboardReady) return remote.leaderboard;
+  return readLocalJson(LEADERBOARD_STORAGE_KEY);
 }
 
 function renderLeaderboard() {
@@ -637,8 +826,8 @@ function renderLeaderboard() {
 function addLeaderboardScore(user, score) {
   const board = getLeaderboard();
   board.push({ user, score });
-  board.sort((a, b) => b.score - a.score);
-  localStorage.setItem("bathroomThoughtsLeaderboard", JSON.stringify(board.slice(0, 3)));
+  board.sort(leaderboardSort);
+  pushLeaderboard(board.slice(0, 3));
   renderLeaderboard();
 }
 
@@ -806,5 +995,4 @@ difficultySelect.addEventListener("change", () => {
 });
 
 resetGame();
-renderLeaderboard();
 gameLoop();
