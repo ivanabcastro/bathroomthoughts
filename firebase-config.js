@@ -3,11 +3,13 @@
 // 2. Build > Realtime Database > Create database (start in test mode for quick setup).
 // 3. Replace every YOUR_* placeholder with your project values.
 window.FIREBASE_CONFIG = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_PROJECT.firebaseapp.com",
-  databaseURL: "https://YOUR_PROJECT-default-rtdb.firebaseio.com",
-  projectId: "YOUR_PROJECT",
-  storageBucket: "YOUR_PROJECT.appspot.com",
-  messagingSenderId: "YOUR_SENDER_ID",
-  appId: "YOUR_APP_ID"
+  apiKey: "AIzaSyD-MOCK_API_KEY_VALUE_143234204662",
+  authDomain: "bathroom-thoughts.firebaseapp.com",
+  databaseURL: "https://bathroom-thoughts-default-rtdb.firebaseio.com",
+  projectId: "bathroom-thoughts",
+  storageBucket: "bathroom-thoughts.firebasestorage.app",
+  messagingSenderId: "143234204662",
+  appId: "1:143234204662:web:5a8e9f2b3c4d5e6f"
+};
+
 };
