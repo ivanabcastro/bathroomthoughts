@@ -53,7 +53,7 @@
       <section class="feed-card">
         <div class="feed-title-row">
           <h2>feed</h2>
-          <span class="live-dot">live</span>
+          <span id="syncStatus" class="live-dot">connecting…</span>
         </div>
         <div id="feed" class="feed-list" aria-live="polite"></div>
         <nav id="feedPagination" class="feed-pagination" aria-label="feed pages"></nav>
@@ -105,6 +105,9 @@
       <img id="lightboxImg" alt="enlarged bathroom selfie" />
     </div>
 
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
+    <script src="./firebase-config.js"></script>
     <script src="./script.js"></script>
   </body>
 </html>
